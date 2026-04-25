@@ -24,6 +24,26 @@
             user-select: none;
         }
 
+        /* Custom Dark-Theme Scrollbars (Glassmorphism inspired) */
+        ::-webkit-scrollbar {
+            width: 12px;
+            height: 12px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #000000;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #2a2a2a;
+            border: 2px solid #000000;
+            border-radius: 8px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #4a4a4a;
+        }
+
         #outer {
             width: 100vw;
             height: 100vh;
@@ -39,7 +59,10 @@
             margin: 0 auto;
             background: #000000;
             border-radius: 0px;
-            box-shadow: 0 0 0 1px #ffffff, 0 4px 12px rgba(255, 255, 255, .1);
+            box-shadow:
+                0 0 0 1px #ffffff,
+                0 4px 12px rgba(255, 255, 255, .1),
+                0 24px 60px rgba(0, 0, 0, .8);
             position: relative;
             overflow: hidden;
             flex-shrink: 0;
@@ -75,9 +98,10 @@
             background: #111111;
             border: 1px solid #333333;
             border-radius: 12px;
-            padding: 8px 24px;
+            padding: 8px 16px;
             z-index: 100;
             color: #ffffff;
+            font-family: 'Caveat', cursive;
             font-size: 24px;
         }
 
@@ -86,7 +110,10 @@
             border: none;
             color: #888888;
             cursor: pointer;
-            font-size: 32px;
+            font-size: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
             transition: color 0.1s;
         }
 
@@ -101,15 +128,16 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            color: #fff;
+            color: #aaa;
             font-size: 32px;
             z-index: 1000;
+            font-family: 'Caveat', cursive;
         }
     </style>
 </head>
 
 <body>
-    <div id="loading-overlay">Loading Theology...</div>
+    <div id="loading-overlay">Opening Theology...</div>
 
     <div id="outer">
         <div id="book">
@@ -123,10 +151,10 @@
         </div>
     </div>
 
-    <div id="page-controls">
-        <button class="page-btn" onclick="switchPage(currentPage - 1)">←</button>
+    <div id="page-controls" style="display: none;">
+        <button class="page-btn" id="btn-prev">&#9664;</button>
         <span id="page-num">1</span>
-        <button class="page-btn" onclick="switchPage(currentPage + 1)">→</button>
+        <button class="page-btn" id="btn-next">&#9654;</button>
     </div>
 
     <script type="module">
@@ -158,8 +186,6 @@
 
         function mk(tag) { return document.createElementNS(NS, tag); }
         function sa(e, o) { for (const [k, v] of Object.entries(o)) e.setAttribute(k, v); }
-        function nid(id) { return nodes.find(n => n.id === id); }
-        function aid(id) { return arrows.find(a => a.id === id); }
         function bid(id) { return nodes.find(n => n.id === id); }
 
         function getTextWidth(text, font) {
@@ -179,8 +205,7 @@
             const lh = fs * 1.2;
             const exactWidth = getTextWidth(n.label || 'Text', `${fs}px "Caveat", cursive`);
             const w = Math.max(20, exactWidth + (n.size === 'arrow' ? 16 : 24));
-            const linesCount = (n.label || '').split('\n').length || 1;
-            const h = linesCount * lh + (n.size === 'arrow' ? 8 : 4);
+            const h = ((n.label || '').split('\n').length || 1) * lh + (n.size === 'arrow' ? 8 : 4);
             const isCenter = n.size === 'arrow';
             const boxX = isCenter ? n.x - w / 2 : n.x;
             const boxY = isCenter ? n.y - h / 2 : n.y;
@@ -199,8 +224,7 @@
                 const lh = fs * 1.2;
                 const exactWidth = getTextWidth(n.label || 'Text', `${fs}px "Caveat", cursive`);
                 const w = Math.max(20, exactWidth + (n.size === 'arrow' ? 16 : 24));
-                const linesCount = (n.label || '').split('\n').length || 1;
-                const h = linesCount * lh + (n.size === 'arrow' ? 8 : 4);
+                const h = ((n.label || '').split('\n').length || 1) * lh + (n.size === 'arrow' ? 8 : 4);
                 const isCenter = n.size === 'arrow';
                 const boxX = isCenter ? n.x - w / 2 : n.x;
                 const boxY = isCenter ? n.y - h / 2 : n.y;
@@ -252,16 +276,14 @@
             const srcC = fromN ? getNodeCenter(fromN) : { x: 0, y: 0 };
             const tgtC = toN ? getNodeCenter(toN) : { x: arr.x2 || srcC.x, y: arr.y2 || srcC.y };
             arr.waypoints = arr.waypoints || [];
-            let x1 = srcC.x, y1 = srcC.y, nextPt = arr.waypoints.length > 0 ? arr.waypoints[0] : { x: tgtC.x, y: tgtC.y };
-            if (fromN) { const pt = getClosestEdgePoint(fromN, nextPt.x, nextPt.y); x1 = pt.x; y1 = pt.y; }
-            let x2 = tgtC.x, y2 = tgtC.y, prevPt = arr.waypoints.length > 0 ? arr.waypoints[arr.waypoints.length - 1] : { x: srcC.x, y: srcC.y };
-            if (toN) { const pt = getClosestEdgePoint(toN, prevPt.x, prevPt.y); x2 = pt.x; y2 = pt.y; }
+            let nextPt = arr.waypoints.length > 0 ? arr.waypoints[0] : tgtC;
+            let { x: x1, y: y1 } = fromN ? getClosestEdgePoint(fromN, nextPt.x, nextPt.y) : srcC;
+            let prevPt = arr.waypoints.length > 0 ? arr.waypoints[arr.waypoints.length - 1] : srcC;
+            let { x: x2, y: y2 } = toN ? getClosestEdgePoint(toN, prevPt.x, prevPt.y) : tgtC;
             const pts = [{ x: x1, y: y1 }, ...arr.waypoints, { x: x2, y: y2 }];
-            const pathStr = `M ${pts.map(p => `${p.x},${p.y}`).join(' L ')}`;
             const path = mk('path');
-            sa(path, { d: pathStr, fill: 'none', stroke: '#ffffff', 'stroke-width': 2, 'stroke-linejoin': 'round', 'marker-end': 'url(#ah)', 'pointer-events': 'none' });
-            const g = mk('g'); g.appendChild(path);
-            svg.appendChild(g);
+            sa(path, { d: `M ${pts.map(p => `${p.x},${p.y}`).join(' L ')}`, fill: 'none', stroke: '#ffffff', 'stroke-width': 2, 'stroke-linejoin': 'round', 'marker-end': 'url(#ah)', 'pointer-events': 'none' });
+            svg.appendChild(path);
         }
 
         function render() {
@@ -271,25 +293,23 @@
             document.getElementById('page-num').textContent = currentPage + 1;
         }
 
-        window.switchPage = (idx) => {
+        function switchPage(idx) {
             if (idx < 0 || idx >= pages.length) return;
             currentPage = idx;
             nodes = pages[currentPage].nodes || [];
             arrows = pages[currentPage].arrows || [];
             render();
-        };
+        }
 
         async function loadCloud() {
             try {
                 const snapshot = await get(ref(db, 'canvas/state'));
                 if (snapshot.exists()) {
                     const data = snapshot.val();
-                    pages = data.pages || [];
-                    currentPage = 0;
-                    nodes = pages[0].nodes || [];
-                    arrows = pages[0].arrows || [];
+                    pages = data.pages || [{ nodes: [], arrows: [] }];
+                    switchPage(0);
                     document.getElementById('loading-overlay').style.display = 'none';
-                    render();
+                    document.getElementById('page-controls').style.display = 'flex';
                 } else {
                     document.getElementById('loading-overlay').textContent = 'No theology found.';
                 }
@@ -297,6 +317,9 @@
                 document.getElementById('loading-overlay').textContent = 'Error loading theology.';
             }
         }
+
+        document.getElementById('btn-prev').onclick = () => switchPage(currentPage - 1);
+        document.getElementById('btn-next').onclick = () => switchPage(currentPage + 1);
 
         loadCloud();
     </script>
