@@ -2,32 +2,304 @@
 <html lang="en">
 
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Theological Web Project</title>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Theology Reader</title>
+    <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;600&display=swap" rel="stylesheet" />
     <style>
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
         body {
-            background-color: #1a1a1a;
-            color: white;
-            font-family: 'Inter', sans-serif;
+            background: #000000;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+            font-family: 'Caveat', cursive;
+            user-select: none;
+        }
+
+        #outer {
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            position: relative;
+            overflow: auto;
+            padding: 40px;
+        }
+
+        #book {
+            width: 1200px;
+            height: 700px;
+            margin: 0 auto;
+            background: #000000;
+            border-radius: 0px;
+            box-shadow: 0 0 0 1px #ffffff, 0 4px 12px rgba(255, 255, 255, .1);
+            position: relative;
+            overflow: hidden;
+            flex-shrink: 0;
+        }
+
+        #book::after {
+            content: "";
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            left: 50%;
+            width: 1px;
+            background: #333333;
+            pointer-events: none;
+        }
+
+        #book-svg {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        #page-controls {
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            background: #111111;
+            border: 1px solid #333333;
+            border-radius: 12px;
+            padding: 8px 24px;
+            z-index: 100;
+            color: #ffffff;
+            font-size: 24px;
+        }
+
+        .page-btn {
+            background: transparent;
+            border: none;
+            color: #888888;
+            cursor: pointer;
+            font-size: 32px;
+            transition: color 0.1s;
+        }
+
+        .page-btn:hover {
+            color: #ffffff;
+        }
+
+        #loading-overlay {
+            position: fixed;
+            inset: 0;
+            background: #000;
             display: flex;
             justify-content: center;
             align-items: center;
-            height: 100vh;
-            margin: 0;
-        }
-
-        h1 {
-            font-size: 3rem;
-            background: linear-gradient(90deg, #4facfe 0%, #00f2fe 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
+            color: #fff;
+            font-size: 32px;
+            z-index: 1000;
         }
     </style>
 </head>
 
 <body>
-    <h1>Theological Canvas Project</h1>
+    <div id="loading-overlay">Loading Theology...</div>
+
+    <div id="outer">
+        <div id="book">
+            <svg id="book-svg" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                    <marker id="ah" markerWidth="10" markerHeight="10" refX="8" refY="3.5" orient="auto">
+                        <path d="M0,0.5 L0,6.5 L9,3.5 z" fill="#ffffff" />
+                    </marker>
+                </defs>
+            </svg>
+        </div>
+    </div>
+
+    <div id="page-controls">
+        <button class="page-btn" onclick="switchPage(currentPage - 1)">←</button>
+        <span id="page-num">1</span>
+        <button class="page-btn" onclick="switchPage(currentPage + 1)">→</button>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-app.js";
+        import { getDatabase, ref, get } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-database.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyB8swGz3hRqGqN5A-otheen9x-xicllvWM",
+            authDomain: "theo-d48ca.firebaseapp.com",
+            databaseURL: "https://theo-d48ca-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "theo-d48ca",
+            storageBucket: "theo-d48ca.firebasestorage.app",
+            messagingSenderId: "695348212069",
+            appId: "1:695348212069:web:1043b21d4de664b1b3f18c"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        const R = 20;
+        const NS = 'http://www.w3.org/2000/svg';
+        let pages = [{ nodes: [], arrows: [] }];
+        let currentPage = 0;
+        let nodes = pages[0].nodes;
+        let arrows = pages[0].arrows;
+
+        const svg = document.getElementById('book-svg');
+        const measureCtx = document.createElement('canvas').getContext('2d');
+
+        function mk(tag) { return document.createElementNS(NS, tag); }
+        function sa(e, o) { for (const [k, v] of Object.entries(o)) e.setAttribute(k, v); }
+        function nid(id) { return nodes.find(n => n.id === id); }
+        function aid(id) { return arrows.find(a => a.id === id); }
+        function bid(id) { return nodes.find(n => n.id === id); }
+
+        function getTextWidth(text, font) {
+            measureCtx.font = font;
+            const lines = (text || ' ').split('\n');
+            let maxW = 0;
+            for (const l of lines) maxW = Math.max(maxW, measureCtx.measureText(l || ' ').width);
+            return maxW;
+        }
+
+        function getNodeCenter(n) {
+            if (!n) return { x: 0, y: 0 };
+            if (n.type === 'circle') return { x: n.x, y: n.y };
+            let fs = 22;
+            if (n.size === 'header') fs = 36;
+            if (n.size === 'arrow') fs = 16;
+            const lh = fs * 1.2;
+            const exactWidth = getTextWidth(n.label || 'Text', `${fs}px "Caveat", cursive`);
+            const w = Math.max(20, exactWidth + (n.size === 'arrow' ? 16 : 24));
+            const linesCount = (n.label || '').split('\n').length || 1;
+            const h = linesCount * lh + (n.size === 'arrow' ? 8 : 4);
+            const isCenter = n.size === 'arrow';
+            const boxX = isCenter ? n.x - w / 2 : n.x;
+            const boxY = isCenter ? n.y - h / 2 : n.y;
+            return { x: boxX + w / 2, y: boxY + h / 2 };
+        }
+
+        function getClosestEdgePoint(n, tx, ty) {
+            if (n.type === 'circle') {
+                const angle = Math.atan2(ty - n.y, tx - n.x);
+                return { x: n.x + R * Math.cos(angle), y: n.y + R * Math.sin(angle) };
+            }
+            if (n.type === 'text') {
+                let fs = 22;
+                if (n.size === 'header') fs = 36;
+                if (n.size === 'arrow') fs = 16;
+                const lh = fs * 1.2;
+                const exactWidth = getTextWidth(n.label || 'Text', `${fs}px "Caveat", cursive`);
+                const w = Math.max(20, exactWidth + (n.size === 'arrow' ? 16 : 24));
+                const linesCount = (n.label || '').split('\n').length || 1;
+                const h = linesCount * lh + (n.size === 'arrow' ? 8 : 4);
+                const isCenter = n.size === 'arrow';
+                const boxX = isCenter ? n.x - w / 2 : n.x;
+                const boxY = isCenter ? n.y - h / 2 : n.y;
+                const cx = boxX + w / 2, cy = boxY + h / 2;
+                const dx = tx - cx, dy = ty - cy;
+                if (dx === 0 && dy === 0) return { x: cx, y: cy };
+                const absDx = Math.abs(dx), absDy = Math.abs(dy);
+                const halfW = w / 2, halfH = h / 2;
+                if (absDx * halfH > absDy * halfW) return { x: cx + Math.sign(dx) * halfW, y: cy + dy * (halfW / absDx) };
+                else return { x: cx + dx * (halfH / absDy), y: cy + Math.sign(dy) * halfH };
+            }
+            return { x: n.x, y: n.y };
+        }
+
+        function renderCircle(n) {
+            const g = mk('g');
+            const c = mk('circle');
+            sa(c, { cx: n.x, cy: n.y, r: R, fill: '#000000', stroke: '#ffffff', 'stroke-width': 2 });
+            g.appendChild(c);
+            svg.appendChild(g);
+        }
+
+        function renderTextNode(n) {
+            const lbl = n.label || '';
+            const lines = lbl.split('\n');
+            if (lines.length === 0) lines.push('');
+            const g = mk('g');
+            if (n.angle && n.size === 'arrow') sa(g, { transform: `rotate(${n.angle} ${n.x} ${n.y})` });
+            let fs = 22;
+            if (n.size === 'header') fs = 36;
+            if (n.size === 'arrow') fs = 16;
+            const lh = fs * 1.2;
+            const isCenter = n.size === 'arrow';
+            const t = mk('text');
+            sa(t, { x: isCenter ? n.x : n.x + 12, 'text-anchor': isCenter ? 'middle' : 'start', fill: '#ffffff', 'font-family': 'Caveat, cursive', 'font-size': fs, 'pointer-events': 'none' });
+            const startY = isCenter ? n.y + (fs * 0.25) - ((lines.length - 1) * lh) / 2 : n.y + (fs * 0.9);
+            lines.forEach((l, i) => {
+                const tspan = mk('tspan');
+                sa(tspan, { x: isCenter ? n.x : n.x + 12, y: startY + i * lh });
+                tspan.textContent = l;
+                t.appendChild(tspan);
+            });
+            g.appendChild(t);
+            svg.appendChild(g);
+        }
+
+        function renderArrow(arr) {
+            const fromN = bid(arr.fromId), toN = arr.toId ? bid(arr.toId) : null;
+            const srcC = fromN ? getNodeCenter(fromN) : { x: 0, y: 0 };
+            const tgtC = toN ? getNodeCenter(toN) : { x: arr.x2 || srcC.x, y: arr.y2 || srcC.y };
+            arr.waypoints = arr.waypoints || [];
+            let x1 = srcC.x, y1 = srcC.y, nextPt = arr.waypoints.length > 0 ? arr.waypoints[0] : { x: tgtC.x, y: tgtC.y };
+            if (fromN) { const pt = getClosestEdgePoint(fromN, nextPt.x, nextPt.y); x1 = pt.x; y1 = pt.y; }
+            let x2 = tgtC.x, y2 = tgtC.y, prevPt = arr.waypoints.length > 0 ? arr.waypoints[arr.waypoints.length - 1] : { x: srcC.x, y: srcC.y };
+            if (toN) { const pt = getClosestEdgePoint(toN, prevPt.x, prevPt.y); x2 = pt.x; y2 = pt.y; }
+            const pts = [{ x: x1, y: y1 }, ...arr.waypoints, { x: x2, y: y2 }];
+            const pathStr = `M ${pts.map(p => `${p.x},${p.y}`).join(' L ')}`;
+            const path = mk('path');
+            sa(path, { d: pathStr, fill: 'none', stroke: '#ffffff', 'stroke-width': 2, 'stroke-linejoin': 'round', 'marker-end': 'url(#ah)', 'pointer-events': 'none' });
+            const g = mk('g'); g.appendChild(path);
+            svg.appendChild(g);
+        }
+
+        function render() {
+            [...svg.children].forEach(el => { if (el.tagName !== 'defs') el.remove(); });
+            arrows.forEach(renderArrow);
+            nodes.forEach(n => n.type === 'circle' ? renderCircle(n) : renderTextNode(n));
+            document.getElementById('page-num').textContent = currentPage + 1;
+        }
+
+        window.switchPage = (idx) => {
+            if (idx < 0 || idx >= pages.length) return;
+            currentPage = idx;
+            nodes = pages[currentPage].nodes || [];
+            arrows = pages[currentPage].arrows || [];
+            render();
+        };
+
+        async function loadCloud() {
+            try {
+                const snapshot = await get(ref(db, 'canvas/state'));
+                if (snapshot.exists()) {
+                    const data = snapshot.val();
+                    pages = data.pages || [];
+                    currentPage = 0;
+                    nodes = pages[0].nodes || [];
+                    arrows = pages[0].arrows || [];
+                    document.getElementById('loading-overlay').style.display = 'none';
+                    render();
+                } else {
+                    document.getElementById('loading-overlay').textContent = 'No theology found.';
+                }
+            } catch (err) {
+                document.getElementById('loading-overlay').textContent = 'Error loading theology.';
+            }
+        }
+
+        loadCloud();
+    </script>
 </body>
 
 </html>
