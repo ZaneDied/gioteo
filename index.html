@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Giovnna</title>
+    <title>Giovanna</title>
     <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;600&display=swap" rel="stylesheet" />
     <style>
         *,
@@ -48,6 +48,8 @@
             width: 100vw;
             height: 100vh;
             display: flex;
+            flex-direction: column;
+            align-items: center;
             position: relative;
             overflow: auto;
             padding: 40px;
@@ -133,13 +135,24 @@
             z-index: 1000;
             font-family: 'Caveat', cursive;
         }
+
+        #page-title {
+            color: #ffffff;
+            font-size: 64px;
+            font-weight: 600;
+            letter-spacing: 2px;
+            margin-bottom: 20px;
+            z-index: 50;
+            pointer-events: none;
+            flex-shrink: 0;
+        }
     </style>
 </head>
 
 <body>
     <div id="loading-overlay">Loading</div>
-
     <div id="outer">
+        <h1 id="page-title">Giovanna</h1>
         <div id="book">
             <svg id="book-svg" xmlns="http://www.w3.org/2000/svg">
                 <defs>
