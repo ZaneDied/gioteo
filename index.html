@@ -177,21 +177,6 @@
             #book::after {
                 display: none;
             }
-
-            .sub-page-btn {
-                display: flex !important;
-            }
-        }
-
-        .sub-page-btn {
-            display: none;
-            background: rgba(17, 17, 17, 0.8);
-            border: 1px solid #333;
-            color: #fff;
-            padding: 4px 8px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 14px;
         }
     </style>
 </head>
@@ -212,11 +197,9 @@
     </div>
 
     <div id="page-controls" style="display: none;">
-        <button class="sub-page-btn" id="btn-sub-prev">◄ Page</button>
         <button class="page-btn" id="btn-prev">&#9664;</button>
         <span id="page-num">1</span>
         <button class="page-btn" id="btn-next">&#9654;</button>
-        <button class="sub-page-btn" id="btn-sub-next">Page ►</button>
     </div>
 
     <script type="module">
@@ -362,13 +345,20 @@
             [...svg.children].forEach(el => { if (el.tagName !== 'defs') el.remove(); });
             arrows.forEach(renderArrow);
             nodes.forEach(n => n.type === 'circle' ? renderCircle(n) : renderTextNode(n));
-            document.getElementById('page-num').textContent = currentPage + 1;
+
+            const isMobile = window.innerWidth <= 768;
+            if (isMobile) {
+                document.getElementById('page-num').textContent = (currentPage * 2 + currentSubPage + 1);
+            } else {
+                document.getElementById('page-num').textContent = currentPage + 1;
+            }
             updateViewBox();
         }
 
-        function switchPage(idx) {
+        function switchPage(idx, sub = 0) {
             if (idx < 0 || idx >= pages.length) return;
             currentPage = idx;
+            currentSubPage = sub;
             nodes = pages[currentPage].nodes || [];
             arrows = pages[currentPage].arrows || [];
             render();
@@ -391,19 +381,27 @@
             }
         }
 
-        document.getElementById('btn-prev').onclick = () => switchPage(currentPage - 1);
-        document.getElementById('btn-next').onclick = () => switchPage(currentPage + 1);
-
-        document.getElementById('btn-sub-prev').onclick = () => {
-            currentSubPage = 0;
-            updateViewBox();
-        };
-        document.getElementById('btn-sub-next').onclick = () => {
-            currentSubPage = 1;
-            updateViewBox();
+        document.getElementById('btn-prev').onclick = () => {
+            const isMobile = window.innerWidth <= 768;
+            if (isMobile) {
+                let v = currentPage * 2 + currentSubPage - 1;
+                if (v >= 0) switchPage(Math.floor(v / 2), v % 2);
+            } else {
+                switchPage(currentPage - 1);
+            }
         };
 
-        window.onresize = updateViewBox;
+        document.getElementById('btn-next').onclick = () => {
+            const isMobile = window.innerWidth <= 768;
+            if (isMobile) {
+                let v = currentPage * 2 + currentSubPage + 1;
+                if (v < pages.length * 2) switchPage(Math.floor(v / 2), v % 2);
+            } else {
+                switchPage(currentPage + 1);
+            }
+        };
+
+        window.onresize = () => render();
 
         loadCloud();
     </script>
