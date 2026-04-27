@@ -69,6 +69,7 @@
             position: relative;
             overflow: hidden;
             flex-shrink: 0;
+            transition: aspect-ratio 0.3s ease;
         }
 
         #book::after {
@@ -168,6 +169,29 @@
             .page-btn {
                 font-size: 18px;
             }
+
+            #book {
+                aspect-ratio: 600 / 700;
+            }
+
+            #book::after {
+                display: none;
+            }
+
+            .sub-page-btn {
+                display: flex !important;
+            }
+        }
+
+        .sub-page-btn {
+            display: none;
+            background: rgba(17, 17, 17, 0.8);
+            border: 1px solid #333;
+            color: #fff;
+            padding: 4px 8px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
         }
     </style>
 </head>
@@ -188,9 +212,11 @@
     </div>
 
     <div id="page-controls" style="display: none;">
+        <button class="sub-page-btn" id="btn-sub-prev">◄ Page</button>
         <button class="page-btn" id="btn-prev">&#9664;</button>
         <span id="page-num">1</span>
         <button class="page-btn" id="btn-next">&#9654;</button>
+        <button class="sub-page-btn" id="btn-sub-next">Page ►</button>
     </div>
 
     <script type="module">
@@ -214,6 +240,7 @@
         const NS = 'http://www.w3.org/2000/svg';
         let pages = [{ nodes: [], arrows: [] }];
         let currentPage = 0;
+        let currentSubPage = 0; // 0 = left, 1 = right
         let nodes = pages[0].nodes;
         let arrows = pages[0].arrows;
 
@@ -322,11 +349,21 @@
             svg.appendChild(path);
         }
 
+        function updateViewBox() {
+            const isMobile = window.innerWidth <= 768;
+            if (isMobile) {
+                svg.setAttribute('viewBox', `${currentSubPage * 600} 0 600 700`);
+            } else {
+                svg.setAttribute('viewBox', '0 0 1200 700');
+            }
+        }
+
         function render() {
             [...svg.children].forEach(el => { if (el.tagName !== 'defs') el.remove(); });
             arrows.forEach(renderArrow);
             nodes.forEach(n => n.type === 'circle' ? renderCircle(n) : renderTextNode(n));
             document.getElementById('page-num').textContent = currentPage + 1;
+            updateViewBox();
         }
 
         function switchPage(idx) {
@@ -356,6 +393,17 @@
 
         document.getElementById('btn-prev').onclick = () => switchPage(currentPage - 1);
         document.getElementById('btn-next').onclick = () => switchPage(currentPage + 1);
+
+        document.getElementById('btn-sub-prev').onclick = () => {
+            currentSubPage = 0;
+            updateViewBox();
+        };
+        document.getElementById('btn-sub-next').onclick = () => {
+            currentSubPage = 1;
+            updateViewBox();
+        };
+
+        window.onresize = updateViewBox;
 
         loadCloud();
     </script>
