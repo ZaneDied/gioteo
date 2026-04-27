@@ -52,12 +52,13 @@
             align-items: center;
             position: relative;
             overflow: auto;
-            padding: 40px;
+            padding: 40px 20px;
         }
 
         #book {
-            width: 1200px;
-            height: 700px;
+            width: 95vw;
+            max-width: 1200px;
+            aspect-ratio: 1200 / 700;
             margin: 0 auto;
             background: #000000;
             border-radius: 0px;
@@ -145,6 +146,28 @@
             z-index: 50;
             pointer-events: none;
             flex-shrink: 0;
+            text-align: center;
+        }
+
+        @media (max-width: 768px) {
+            #page-title {
+                font-size: 32px;
+                margin-bottom: 10px;
+            }
+
+            #outer {
+                padding: 20px 10px;
+            }
+
+            #page-controls {
+                font-size: 18px;
+                padding: 6px 12px;
+                bottom: 12px;
+            }
+
+            .page-btn {
+                font-size: 18px;
+            }
         }
     </style>
 </head>
@@ -154,7 +177,7 @@
     <div id="outer">
         <h1 id="page-title">Giovanna</h1>
         <div id="book">
-            <svg id="book-svg" xmlns="http://www.w3.org/2000/svg">
+            <svg id="book-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 700">
                 <defs>
                     <marker id="ah" markerWidth="10" markerHeight="10" refX="8" refY="3.5" orient="auto">
                         <path d="M0,0.5 L0,6.5 L9,3.5 z" fill="#ffffff" />
